@@ -25,8 +25,13 @@ class GPT2Tokenizer:
     def decode(self, bpe_list):
         output_str = ""
         for e in bpe_list:
+            # FIXME: Will raise StopIteration if no match is found
             key = next(key for key, value in self.vocab.items() if value == e)
             output_str += key
 
         output_str = output_str.replace('Ġ', ' ')
         return output_str
+    
+class GPT2:
+    def __init__(self) -> None:
+        self.wte = None
