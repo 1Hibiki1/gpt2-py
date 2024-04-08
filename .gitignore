@@ -155,3 +155,7 @@ cython_debug/
 # my stuf
 model
 .DS_Store
+./.temp
+GPT2/
+gpt2_*
+run.py
