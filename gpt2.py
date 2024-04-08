@@ -91,7 +91,7 @@ class GPT2KVCache:
     def append_kv(self, kv_tuple) -> None:
         self.k_cache.append(kv_tuple[0])
         self.v_cache.append(kv_tuple[1])
-    
+
     def __iter__(self):
         self.cur_idx = 0
         return self
@@ -136,39 +136,39 @@ class GPT2Layer:
         self.ln_f_bias = None
 
     def _softmax(self, x):
-        x = x/np.linalg.norm(x)
+        x = x / np.linalg.norm(x)
         ex = np.exp(x - np.max(x))
-        return(ex/np.sum(ex))
+        return ex / np.sum(ex)
 
     def _gelu(self, x):
         return 0.5 * x * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x**3)))
 
     def forward(self, input: Embedding) -> Embedding:
-        norm = (input - np.mean(input))/np.std(input)
+        norm = (input - np.mean(input)) / np.std(input)
         norm = norm * self.ln_1_weights + self.ln_1_bias
-        
+
         query = np.dot(norm, self.q_weights) + self.q_bias
         query = query.reshape((12, 64))
 
         output = list()
         for k, v in self.kv_cache:
-            kq = query*k
+            kq = query * k
             kq = np.sum(kq, axis=1)
-            kq = kq/np.sqrt(768/12)
+            kq = kq / np.sqrt(768 / 12)
             # TODO: mask kq? ugh what????
             kq = self._softmax(kq)
 
-            v_scaled = (v.T*kq).T
+            v_scaled = (v.T * kq).T
 
             final_v = v_scaled.reshape(768)
 
             output.append(final_v)
-        
+
         output = np.array(output)
         output = np.dot(output, self.attn_proj_weights) + self.attn_proj_bias
         output += input
 
-        norm = (output - np.mean(output))/np.std(output)
+        norm = (output - np.mean(output)) / np.std(output)
         norm = norm * self.ln_2_weights + self.ln_2_bias
 
         fc_out = np.dot(norm, self.mlp_fc_weights) + self.mlp_fc_bias
@@ -178,7 +178,6 @@ class GPT2Layer:
         proj_out = proj_out + output
 
         return np.sum(proj_out, axis=0)
-
 
     def cache_kv(self, input: Embedding) -> None:
         k = np.dot(input, self.k_weights) + self.k_bias
@@ -255,8 +254,8 @@ class GPT2:
         for layer in self.layers:
             cur_embedding = layer.forward(cur_embedding)
             layer.cache_kv(cur_embedding)
-        
-        cur_embedding = (cur_embedding - np.mean(cur_embedding))/np.std(cur_embedding)
+
+        cur_embedding = (cur_embedding - np.mean(cur_embedding)) / np.std(cur_embedding)
         cur_embedding = cur_embedding * self.ln_f_weights + self.ln_f_bias
 
         # mul with wte and get arg max
@@ -265,16 +264,19 @@ class GPT2:
 
         new_embed = self.wte[output_token]
         new_embed = new_embed + self.wpe[len(self.token_embedding_list)]
-        self.token_embedding_list = np.append(self.token_embedding_list, [new_embed], axis=0)
+        self.token_embedding_list = np.append(
+            self.token_embedding_list, [new_embed], axis=0
+        )
 
         # return token
         return self.tokenizer.decode_single(output_token)
+
 
 # np.seterr(all='raise')
 model = GPT2("model")
 prompt = "The transformer architecture used in large language models is"
 model.prepare(prompt)
-print(prompt, end='', flush=True)
+print(prompt, end="", flush=True)
 for _ in range(10):
-    print(model.get_next_token(), end='', flush=True)
+    print(model.get_next_token(), end="", flush=True)
 print()
