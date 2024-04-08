@@ -41,6 +41,8 @@ class Tokenizer:
         tok_data = json.load(f)
 
         self.vocab = tok_data["model"]["vocab"]
+
+        # from openai lol
         self.re = regex.compile(
             r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
         )
@@ -48,7 +50,7 @@ class Tokenizer:
     def tokenize(self, input: str) -> list[str]:
         tokens = regex.findall(self.re, input)
         tokens = [i.replace(" ", "Ġ") for i in tokens]
-        # TODO: merge tokens
+        # TODO: merge tokens(?)
         return tokens
 
     def encode(self, tokens: list[str]) -> list[int]:
@@ -64,7 +66,9 @@ class Tokenizer:
         output_str = ""
         for e in code_list:
             try:
-                key = next(key for key, value in self.vocab.items() if value == e)
+                key = next(
+                    key for key, value in self.vocab.items() if value == e
+                )  # from some stack overflow post
                 output_str += key
             except:
                 # suposed to raise StopIteration if no match is found
@@ -144,13 +148,18 @@ class GPT2Layer:
         return 0.5 * x * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x**3)))
 
     def forward(self, input: Embedding) -> Embedding:
+        # 1) norm
         norm = (input - np.mean(input)) / np.std(input)
         norm = norm * self.ln_1_weights + self.ln_1_bias
 
+        # 2) compute query?
         query = np.dot(norm, self.q_weights) + self.q_bias
+
+        # split attention head stuf
         query = query.reshape((12, 64))
 
         output = list()
+        # 3) for all previous tokens, compute softmax(QK.t/sqrt(d))*V and append res to output
         for k, v in self.kv_cache:
             kq = query * k
             kq = np.sum(kq, axis=1)
@@ -165,18 +174,24 @@ class GPT2Layer:
             output.append(final_v)
 
         output = np.array(output)
+        # 4) proj
         output = np.dot(output, self.attn_proj_weights) + self.attn_proj_bias
+
+        # residual stufff
         output += input
 
+        # 5) norm 2
         norm = (output - np.mean(output)) / np.std(output)
         norm = norm * self.ln_2_weights + self.ln_2_bias
 
+        # 6) mlp
         fc_out = np.dot(norm, self.mlp_fc_weights) + self.mlp_fc_bias
         fc_out = self._gelu(fc_out)
 
         proj_out = np.dot(fc_out, self.mlp_proj_weights) + self.mlp_proj_bias
         proj_out = proj_out + output
 
+        # 7) "sum" all the outputs, and thats the input to the next layer (apparently)
         return np.sum(proj_out, axis=0)
 
     def cache_kv(self, input: Embedding) -> None:
@@ -251,10 +266,12 @@ class GPT2:
         # get last item in self.token_embedding_list
         cur_embedding = self.token_embedding_list[-1]
 
+        # do the stuf
         for layer in self.layers:
             cur_embedding = layer.forward(cur_embedding)
             layer.cache_kv(cur_embedding)
 
+        # final norm
         cur_embedding = (cur_embedding - np.mean(cur_embedding)) / np.std(cur_embedding)
         cur_embedding = cur_embedding * self.ln_f_weights + self.ln_f_bias
 
@@ -262,6 +279,7 @@ class GPT2:
         logits = np.dot(cur_embedding, self.wte.T)
         output_token = np.argmax(logits)
 
+        # append embedding for new token
         new_embed = self.wte[output_token]
         new_embed = new_embed + self.wpe[len(self.token_embedding_list)]
         self.token_embedding_list = np.append(
@@ -272,7 +290,9 @@ class GPT2:
         return self.tokenizer.decode_single(output_token)
 
 
+# always raises some overflow error, idk why, this whole implementation is probs real messed up
 # np.seterr(all='raise')
+
 model = GPT2("model")
 prompt = "The transformer architecture used in large language models is"
 model.prepare(prompt)
