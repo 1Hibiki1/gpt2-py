@@ -21,7 +21,6 @@ class Loader:
     def get_tensor(self, name: str) -> Tensor:
         tensor_data_start_offset = 8 + self.meta_len
         tensor_meta = self.tensor_meta[name]
-        # print(tensor_meta)
 
         tensor_start_offset = tensor_meta["data_offsets"][0] + tensor_data_start_offset
         tensor_end_offset = tensor_meta["data_offsets"][1] + tensor_data_start_offset
@@ -68,7 +67,7 @@ class Tokenizer:
                 key = next(key for key, value in self.vocab.items() if value == e)
                 output_str += key
             except:
-                # Will raise StopIteration if no match is found
+                # suposed to raise StopIteration if no match is found
                 pass
 
         output_str = output_str.replace("Ġ", " ")
@@ -137,7 +136,6 @@ class GPT2Layer:
         self.ln_f_bias = None
 
     def _softmax(self, x):
-        # print(x - np.max(x))
         x = x/np.linalg.norm(x)
         ex = np.exp(x - np.max(x))
         return(ex/np.sum(ex))
@@ -170,7 +168,6 @@ class GPT2Layer:
         output = np.dot(output, self.attn_proj_weights) + self.attn_proj_bias
         output += input
 
-        # output = output/np.linalg.norm(output)
         norm = (output - np.mean(output))/np.std(output)
         norm = norm * self.ln_2_weights + self.ln_2_bias
 
@@ -263,7 +260,6 @@ class GPT2:
         cur_embedding = cur_embedding * self.ln_f_weights + self.ln_f_bias
 
         # mul with wte and get arg max
-        # logits = np.dot(self.wte, cur_embedding)
         logits = np.dot(cur_embedding, self.wte.T)
         output_token = np.argmax(logits)
 
@@ -274,12 +270,11 @@ class GPT2:
         # return token
         return self.tokenizer.decode_single(output_token)
 
-np.seterr(all='raise')
+# np.seterr(all='raise')
 model = GPT2("model")
-# prompt = "The transformer architecture used in large language models is"
-prompt = "Alan Turing theorized that computers would one day become"
+prompt = "The transformer architecture used in large language models is"
 model.prepare(prompt)
 print(prompt, end='', flush=True)
-for _ in range(8):
+for _ in range(10):
     print(model.get_next_token(), end='', flush=True)
 print()
