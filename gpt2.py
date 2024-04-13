@@ -114,7 +114,6 @@ class GPT2Layer:
 
 class GPT2:
     def __init__(self, dir: str = "model") -> None:
-        self.tokenizer = Tokenizer(dir)
         self.encoder = tiktoken.get_encoding("r50k_base")
 
         self.loader = Loader()
