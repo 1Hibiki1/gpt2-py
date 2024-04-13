@@ -1,7 +1,6 @@
 import json
 
 import numpy as np
-import regex
 import tiktoken
 
 type Embedding = np.array
@@ -41,57 +40,6 @@ class Loader:
         tensor_np_array = np.reshape(tensor_np_array, tensor_meta["shape"])
 
         return tensor_np_array
-
-
-class Tokenizer:
-    def __init__(self, dir: str = "model", tok_file: str = "tokenizer.json") -> None:
-        f = open(f"{dir}/{tok_file}")
-        tok_data = json.load(f)
-
-        self.vocab = tok_data["model"]["vocab"]
-
-        # from openai lol
-        self.re = regex.compile(
-            r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
-        )
-
-    def tokenize(self, input: str) -> list[str]:
-        tokens = regex.findall(self.re, input)
-        tokens = [i.replace(" ", "Ġ") for i in tokens]
-        # TODO: merge tokens(?)
-        return tokens
-
-    def encode(self, tokens: list[str]) -> list[int]:
-        bpe_bytes = list()
-        for t in tokens:
-            bpe_byte = self.vocab.get(t)
-            if bpe_byte != None:
-                bpe_bytes.append(bpe_byte)
-
-        return bpe_bytes
-
-    def decode(self, code_list: list[int]) -> list[Token]:
-        output_str = ""
-        for e in code_list:
-            try:
-                key = next(
-                    key for key, value in self.vocab.items() if value == e
-                )  # from some stack overflow post
-                output_str += key
-            except:
-                # suposed to raise StopIteration if no match is found
-                pass
-
-        output_str = output_str.replace("Ġ", " ")
-        return output_str
-
-    def decode_single(self, code: int) -> Token:
-        try:
-            key = next(key for key, value in self.vocab.items() if value == code)
-            return key.replace("Ġ", " ")
-        except:
-            return ""
-
 
 class GPT2Layer:
     def __init__(self) -> None:
@@ -177,7 +125,7 @@ class GPT2:
 
         self.layers: list[GPT2Layer] = list()
 
-        # TODO: dont hardcode num layers
+        # TODO: dont hardcode num layers lol
         for i in range(12):
             cur_layer = GPT2Layer()
 
@@ -205,11 +153,7 @@ class GPT2:
             self.layers.append(cur_layer)
 
     def get_next_token(self, prompt: str) -> str:
-        # encode
-        # token_list: list[int] = self.tokenizer.encode(self.tokenizer.tokenize(prompt))
         token_list = self.encoder.encode(prompt)
-        # print()
-        # print(token_list)
 
         # wte + wpe
         final_encoding = self.wte[token_list] + self.wpe[range(len(token_list))]
@@ -228,15 +172,15 @@ class GPT2:
 
         output_token = np.argmax(output)
 
-        # return self.tokenizer.decode_single(output_token)
         return self.encoder.decode([output_token])
 
-model = GPT2("model")
 
+model = GPT2("model")
 prompt = "Alan Turing theorized that computers would one day become"
 print(prompt, end="", flush=True)
 
-for _ in range(8):
+# gen 20 tokens, output shud start with "the most powerful machines on the planet."
+for _ in range(20):
     next_tok = model.get_next_token(prompt)
     print(next_tok, end="", flush=True)
     prompt += next_tok
